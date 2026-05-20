@@ -1,17 +1,9 @@
-import asyncio
 import logging
 import google.generativeai as genai
-import google.api_core.exceptions
-from typing import List, Dict, Any
-
+from typing import Optional
 import config
 
 logger = logging.getLogger("KrasokAI.GeminiClient")
-
-if config.GOOGLE_API_KEY:
-    genai.configure(api_key=config.GOOGLE_API_KEY)
-else:
-    logger.critical("GOOGLE_API_KEY is not configured! Gemini API calls will fail.")
 
 SYSTEM_PROMPT = f"""Вы являетесь профессиональным AI-ассистентом компании «Центр Красок #1» (centr-krasok.kz).
 Ваша главная цель — отвечать на вопросы пользователей вежливо, профессионально и лаконично.
@@ -31,75 +23,75 @@ SYSTEM_PROMPT = f"""Вы являетесь профессиональным AI-
 ==================================================
 """
 
-generation_config = genai.types.GenerationConfig(
-    temperature=config.TEMPERATURE,
-    max_output_tokens=config.MAX_TOKENS,
-)
+class DualModelGeminiClient:
+    def __init__(self, primary_key: str, primary_model: str, fallback_key: str, fallback_model: str, temperature: float, max_tokens: int):
+        self.primary_key = primary_key
+        self.primary_model = primary_model
+        self.fallback_key = fallback_key
+        self.fallback_model = fallback_model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.current_model = primary_model
+        self.using_fallback = False
+        self._init_primary()
 
-try:
-    model = genai.GenerativeModel(
-        model_name=config.GEMINI_MODEL,
-        generation_config=generation_config,
-        system_instruction=SYSTEM_PROMPT
-    )
-    logger.info(f"Gemini model initialized successfully with model name: {config.GEMINI_MODEL}")
-except Exception as e:
-    logger.error(f"Failed to initialize Gemini Model: {e}")
-    try:
-        model = genai.GenerativeModel(
-            model_name=config.GEMINI_MODEL,
-            generation_config=generation_config
-        )
-    except Exception as e2:
-        logger.critical(f"All Gemini initialization attempts failed: {e2}")
-        model = None
+    def _init_primary(self):
+        genai.configure(api_key=self.primary_key)
+        self.client = genai.GenerativeModel(self.primary_model)
+        logger.info(f"Primary Gemini model initialized: {self.primary_model}")
 
-
-async def generate_response(user_message: str, chat_history: List[Dict[str, str]], retries: int = 3, initial_delay: float = 1.0) -> str:
-    if not config.GOOGLE_API_KEY or "YOUR_GOOGLE_API_KEY" in config.GOOGLE_API_KEY:
-        logger.error("Attempted Gemini call without a valid API Key.")
-        return "⚠️ Извините, на сервере проводятся технические работы (не настроен API ключ). Пожалуйста, свяжитесь с нами напрямую по контактам на сайте centr-krasok.kz."
-
-    if model is None:
-        logger.critical("Gemini model is not initialized.")
-        return "⚠️ Извините, произошла ошибка инициализации AI-модели на сервере. Обратитесь в техническую поддержку."
-
-    contents = []
-    for msg in chat_history:
-        contents.append({
-            "role": msg["role"],
-            "parts": [msg["parts"]]
-        })
-    
-    contents.append({
-        "role": "user",
-        "parts": [user_message]
-    })
-
-    delay = initial_delay
-    for attempt in range(retries):
+    def _init_fallback(self):
+        if not self.fallback_key:
+            logger.warning("Fallback API key not configured")
+            return False
         try:
-            logger.info(f"Sending request to Gemini API (Attempt {attempt + 1}/{retries})")
-            response = await model.generate_content_async(contents)
-            if response and response.text:
-                return response.text
-            else:
-                logger.warning("Empty response from Gemini API.")
-                return "К сожалению, мне не удалось сформулировать ответ. Попробуйте перефразировать вопрос."
-        except google.api_core.exceptions.ResourceExhausted as e:
-            logger.warning(f"Gemini API rate limit exceeded on attempt {attempt + 1}. Retrying in {delay}s... Error: {e}")
-            if attempt == retries - 1:
-                return "⚠️ Превышен лимит запросов к AI-серверу. Пожалуйста, попробуйте написать свой вопрос через несколько секунд."
-            await asyncio.sleep(delay)
-            delay *= 2
-        except google.api_core.exceptions.InvalidArgument as e:
-            logger.error(f"Invalid argument sent to Gemini API: {e}")
-            return "⚠️ Техническая ошибка конфигурации AI. Пожалуйста, обратитесь к менеджеру компании."
+            genai.configure(api_key=self.fallback_key)
+            self.client = genai.GenerativeModel(self.fallback_model)
+            self.current_model = self.fallback_model
+            self.using_fallback = True
+            logger.info(f"Fallback model activated: {self.fallback_model}")
+            return True
         except Exception as e:
-            logger.error(f"Unexpected error during Gemini API call: {e}")
-            if attempt == retries - 1:
-                return "⚠️ К сожалению, произошла техническая ошибка при обработке запроса. Пожалуйста, повторите вопрос позже."
-            await asyncio.sleep(delay)
-            delay *= 2
+            logger.error(f"Failed to initialize fallback model: {e}")
+            return False
 
-    return "⚠️ Не удалось получить ответ от AI-модели после нескольких попыток."
+    async def get_response(self, user_message: str, system_prompt: str, chat_history: list) -> str:
+        try:
+            return await self._query_model(user_message, system_prompt, chat_history)
+        except Exception as e:
+            error_str = str(e).lower()
+            if any(trigger in error_str for trigger in ["429", "rate", "quota", "deadline"]):
+                logger.warning(f"Rate limit detected on {self.current_model}: {e}")
+                if not self.using_fallback and self._init_fallback():
+                    try:
+                        return await self._query_model(user_message, system_prompt, chat_history)
+                    except Exception as fallback_error:
+                        logger.error(f"Fallback model also failed: {fallback_error}")
+                        return "Система временно недоступна. Пожалуйста, попробуйте через несколько секунд."
+                else:
+                    return "Система временно недоступна. Пожалуйста, попробуйте через несколько секунд."
+            else:
+                logger.error(f"Unexpected error: {e}")
+                return "Произошла ошибка. Пожалуйста, попробуйте снова."
+
+    async def _query_model(self, user_message: str, system_prompt: str, chat_history: list) -> str:
+        messages = [{"role": "user", "content": system_prompt}]
+        for msg in chat_history[-10:]:
+            messages.append({"role": msg.get("role", "user"), "content": msg.get("content") or msg.get("parts") or ""})
+        messages.append({"role": "user", "content": user_message})
+        
+        formatted_contents = []
+        for msg in messages:
+            formatted_contents.append({
+                "role": msg["role"],
+                "parts": [msg["content"]]
+            })
+            
+        response = await self.client.generate_content_async(
+            contents=formatted_contents,
+            generation_config=genai.types.GenerationConfig(
+                temperature=self.temperature,
+                max_output_tokens=self.max_tokens,
+            ),
+        )
+        return response.text

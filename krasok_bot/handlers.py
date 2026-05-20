@@ -6,7 +6,17 @@ from aiogram.filters import Command
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.enums import ParseMode
 
-import gemini_client
+from gemini_client import DualModelGeminiClient, SYSTEM_PROMPT
+from config import PRIMARY_API_KEY, PRIMARY_MODEL, FALLBACK_API_KEY, FALLBACK_MODEL, TEMPERATURE, MAX_TOKENS
+
+gemini_client = DualModelGeminiClient(
+    primary_key=PRIMARY_API_KEY,
+    primary_model=PRIMARY_MODEL,
+    fallback_key=FALLBACK_API_KEY,
+    fallback_model=FALLBACK_MODEL,
+    temperature=TEMPERATURE,
+    max_tokens=MAX_TOKENS,
+)
 
 logger = logging.getLogger("KrasokAI.Handlers")
 
@@ -109,7 +119,7 @@ async def text_message_handler(message: Message):
 
     async with ChatActionSender.typing(bot=message.bot, chat_id=chat_id):
         history = get_user_history(chat_id)
-        ai_response = await gemini_client.generate_response(user_query, history)
+        ai_response = await gemini_client.get_response(user_query, SYSTEM_PROMPT, history)
         append_to_user_history(chat_id, "user", user_query)
         append_to_user_history(chat_id, "model", ai_response)
 

@@ -23,8 +23,10 @@ else:
     logger.warning(".env file not found, loading from system environment variables.")
 
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
-GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+PRIMARY_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+PRIMARY_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+FALLBACK_API_KEY: str = os.getenv("GOOGLE_API_KEY_FALLBACK", "")
+FALLBACK_MODEL: str = os.getenv("GEMINI_MODEL_FALLBACK", "gemini-2.5-pro")
 
 try:
     TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.3"))
@@ -57,8 +59,8 @@ def validate_config() -> bool:
     missing = []
     if not TELEGRAM_BOT_TOKEN or "YOUR_TELEGRAM_BOT_TOKEN" in TELEGRAM_BOT_TOKEN:
         missing.append("TELEGRAM_BOT_TOKEN")
-    if not GOOGLE_API_KEY or "YOUR_GOOGLE_API_KEY" in GOOGLE_API_KEY:
-        missing.append("GOOGLE_API_KEY")
+    if not PRIMARY_API_KEY or "YOUR_GOOGLE_API_KEY" in PRIMARY_API_KEY:
+        missing.append("PRIMARY_API_KEY")
 
     if missing:
         err_msg = f"Missing or placeholder configurations in environment: {', '.join(missing)}"
