@@ -1,12 +1,31 @@
-app = "krasokai-bot"
-primary_region = "ams"
+# fly.toml app configuration file generated for krasokai-bot-frosty-log-9894 on 2026-05-20T14:53:18Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'krasokai-bot-frosty-log-9894'
+primary_region = 'ams'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  TELEGRAM_BOT_TOKEN = "8784200804:AAFMgRpcZqXoZXrtfUkxP64PHfqcTcVuAFM"
-  GOOGLE_API_KEY = "AIzaSyDK3xxzkViFdDefK9MmUoLwMq7Z1xW_lpk"
-  GEMINI_MODEL = "gemini-3.5-flash"
-  TEMPERATURE = "0.3"
-  MAX_TOKENS = "2048"
+  GEMINI_MODEL = 'gemini-3.5-flash'
+  GOOGLE_API_KEY = 'AIzaSyDK3xxzkViFdDefK9MmUoLwMq7Z1xW_lpk'
+  MAX_TOKENS = '2048'
+  TELEGRAM_BOT_TOKEN = '8784200804:AAFMgRpcZqXoZXrtfUkxP64PHfqcTcVuAFM'
+  TEMPERATURE = '0.3'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256
