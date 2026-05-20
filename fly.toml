@@ -1,4 +1,4 @@
-app = "krasokai-bot"
+app = "krasokai"
 primary_region = "ams"
 
 [build]
