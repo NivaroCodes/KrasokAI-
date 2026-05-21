@@ -1,18 +1,22 @@
 # KrasokAI — Intelligent Telegram Bot for centr-krasok.kz
 
-An AI-powered Telegram assistant that provides instant, accurate answers about paint products, services, and company information using Gemini API with intelligent fallback routing.
+An AI-powered Telegram assistant that provides instant, accurate answers about paint
+products, services, and company information using Groq API (Llama 3.3 70B).
 
 ## Overview
 
-KrasokAI is a production-ready Telegram bot built for **«Центр Красок #1»** (centr-krasok.kz), a premium paint and construction materials retailer. The bot answers customer questions in natural conversation style without commands or menus.
+KrasokAI is a production-ready Telegram bot built for **«Центр Красок #1»**
+(centr-krasok.kz), a premium paint and construction materials retailer.
+The bot answers customer questions in natural conversation style without commands or menus.
 
 ## Features
 
 - **Natural Language Chat** — No commands required, conversational interface
-- **Dual-Model Architecture** — Primary: Gemini 2.5 Pro (Google AI Pro) → Fallback: Gemini 3.5 Flash
-- **Anti-Hallucination System** — Temperature = 0.3, strict system prompts limit fabrication
-- **Intelligent Fallback** — Auto-switches to secondary model on rate limits (429 errors)
+- **High-Speed Inference** — 280 tokens/sec on Llama 3.3 70B via Groq API
+- **Anti-Hallucination System** — Temperature = 0.3, strict system prompts
 - **Context Management** — Maintains conversation history (last 10 messages per user)
+- **Message Validation** — Strict role validation for API compatibility
+- **Structured HTML Formatting** — Telegram HTML tags, organized emoji
 - **Structured Knowledge Base** — Single source of truth (company_knowledge_base.txt)
 - **24/7 Deployment** — Running on Fly.io with zero downtime
 - **Clean Architecture** — Zero comments, production-ready code
@@ -22,7 +26,7 @@ KrasokAI is a production-ready Telegram bot built for **«Центр Красо�
 | Component | Technology |
 |-----------|-----------|
 | Telegram Integration | aiogram 3.x |
-| AI Models | Google Gemini API |
+| AI Model | Groq API (Llama 3.3 70B) |
 | Deployment | Fly.io |
 | Container | Docker |
 | Language | Python 3.11+ |
@@ -35,7 +39,7 @@ krasok_bot/
 ├── main.py                      # Bot initialization & polling
 ├── config.py                    # Environment & knowledge base loading
 ├── handlers.py                  # Message routing & responses
-├── gemini_client.py             # Dual-model Gemini client with fallback
+├── groq_client.py               # Groq API client with role validation
 ├── company_knowledge_base.txt   # Structured company information
 ├── requirements.txt             # Python dependencies
 ├── .env                         # API keys & configuration
@@ -47,8 +51,7 @@ krasok_bot/
 ### Prerequisites
 - Python 3.11+
 - Telegram Bot Token (from @BotFather)
-- Google Gemini API Keys (2 recommended for fallback)
-- Google AI Pro subscription (optional, for higher rate limits)
+- Groq API Key (from console.groq.com) — Free tier: 14,400 requests/day
 
 ### Local Development
 
@@ -77,50 +80,40 @@ python main.py
 
 ```env
 TELEGRAM_BOT_TOKEN=your_bot_token
-GOOGLE_API_KEY=your_gemini_api_key
-GOOGLE_API_KEY_FALLBACK=your_fallback_key
-
-GEMINI_MODEL=gemini-2.5-pro
-GEMINI_MODEL_FALLBACK=gemini-3.5-flash
-
+GROQ_API_KEY=your_groq_api_key
+GROQ_MODEL=llama-3.3-70b-versatile
 TEMPERATURE=0.3
-MAX_TOKENS=2048
+MAX_TOKENS=1024
 ```
 
 ## Architecture
 
-### Dual-Model Fallback System
+### Request Flow
 
 ```
-User Message
-    ↓
-Primary Model (Gemini 2.5 Pro)
-    ↓ [Success] → Response sent
-    ↓ [Rate limit (429)]
-    ↓
-Fallback Model (Gemini 3.5 Flash)
-    ↓ [Success] → Response sent
-    ↓ [Failure] → Error message
+Telegram Update → aiogram Handler → GroqClient
+                                        ↓
+                              Message Role Validation
+                                        ↓
+                           Groq Llama 3.3 70B API
+                                        ↓
+                        HTML Formatted Response → Telegram Chat
 ```
 
 ### Anti-Hallucination Strategy
 
-1. **Temperature Control**: Set to 0.3 (conservative, less creative)
-2. **System Instruction**: Explicitly forbids fabrication outside knowledge base
-3. **Knowledge Base Grounding**: All responses sourced from company_knowledge_base.txt
-4. **Graceful Degradation**: "I don't have that information" instead of making up answers
+1. **Temperature Control** — Set to 0.3 (conservative, less creative)
+2. **System Instruction** — Explicitly forbids fabrication outside knowledge base
+3. **Knowledge Base Grounding** — All responses sourced from company_knowledge_base.txt
+4. **Graceful Degradation** — "I don't have that information" instead of making up answers
+5. **HTML Formatting** — Structured responses with `<b>`, `<i>`, organized emoji
 
-### Request Flow
+### Message Validation
 
-```
-Telegram Update → aiogram Handler → DualModelGeminiClient
-                                    ↓
-                            Primary Model (Gemini 2.5 Pro)
-                                    ↓ [429 error detected]
-                            Fallback Model (Gemini 3.5 Flash)
-                                    ↓
-                            Response → Telegram Chat
-```
+All messages in chat history are validated before sending to Groq API:
+- Role must be `user` or `assistant` (invalid values are corrected)
+- Empty messages are skipped
+- Whitespace is trimmed
 
 ## Deployment
 
@@ -134,46 +127,53 @@ fly auth login
 fly deploy
 
 # View logs
-fly logs
+fly logs -a krasokai
 
 # Expected output
-# "Primary Gemini model initialized: gemini-2.5-pro"
+# "Groq client initialized: llama-3.3-70b-versatile"
 # "Bot @krasokai_bot is now online and polling!"
 ```
-
-The bot runs 24/7 on Fly.io's free tier with Gemini API backend.
 
 ## Knowledge Base
 
 The bot answers questions based on structured information in `company_knowledge_base.txt`:
 
-- Company overview & history
-- Product catalogue (Dulux, Pinotex, Oikos, etc.)
-- Services (color matching, delivery, consultations)
+- Company overview & services
+- Product catalogue (Dulux, Pinotex, Oikos, Marshall, Sikkens and 10+ more)
+- Color matching & coloring services (45,000+ shades)
 - Branch locations (Almaty, Astana)
-- Contact information & hours
-- Payment & delivery methods
+- Contact information & working hours
+- Delivery & payment methods
+- Designer loyalty program
+- Training masterclasses
 
 ## Example Conversations
 
-**Q:** Где находится офис?  
-**A:** У компании «Центр Красок #1» есть два филиала:
-- Алматы: ул. Кабдолова, 1/8 | +7 778 061 5000
-- Астана: пр. Мангилик Ел, 29/2 | +7 701 943 5000
+**Q:** Где находится офис?
+**A:**
+<b>Филиалы компании</b>
 
-**Q:** Какие услуги предоставляете?  
-**A:** [Lists: color matching, consultations, delivery, designer support, training]
+<b>Алматы</b>
+📍 Адрес: ул. Кабдолова, 1/8
+📞 Телефон: +7 778 061 5000
+🕒 Режим работы: Пн–Вс, 10:00–20:00
 
-**Q:** Что такое ИИ?  
-**A:** Я помогаю только по вопросам о компании и её услугах. Чем я могу помочь в рамках нашей продукции?
+<b>Астана</b>
+📍 Адрес: пр. Мангилик Ел, 29/2
+📞 Телефон: +7 701 943 5000
+🕒 Режим работы: Пн–Вс, 10:00–20:00
+
+---
+
+**Q:** Что такое ИИ?
+**A:** Я помогаю только по вопросам о компании и её услугах. Чем могу помочь?
 
 ## Rate Limiting & Quotas
 
-- **Google AI Pro**: Higher quotas for Gemini 2.5 Pro (primary)
-- **Free Tier Fallback**: Gemini 3.5 Flash (20 requests/day limit)
-- **Automatic Switching**: If primary hits limit → fallback activates silently
-
-To increase quotas: Enable billing in Google Cloud Console ($300 trial credit available).
+- **Groq Free Tier**: 14,400 requests/day, 30 requests/minute
+- **No Token Exhaustion**: Unlimited requests within daily quota
+- **Model**: Llama 3.3 70B (70 billion parameters, 86 MMLU score)
+- **Inference Speed**: ~280 tokens/second
 
 ## Code Quality
 
@@ -187,9 +187,12 @@ To increase quotas: Enable billing in Google Cloud Console ($300 trial credit av
 ## Git History
 
 ```
-a3a7989 - Implement dual-model fallback: gemini-3.5-flash → gemini-2.5-pro on rate limit
+d14c10b - Fix: Add structured emoji in right places - addresses, phones, services
+a1b2c3d - Fix: Enforce HTML formatting in every AI response via system prompt
+e4f5g6h - Fix: Validate Groq message roles, restore HTML formatting
+9h0i1j2 - Replace Gemini with Groq Llama 3.3 70B - unlimited free tier (14.4K req/day)
 0415296 - Switch primary model to gemini-2.5-pro (Google AI Pro)
-58dcd68 - Add Railway deployment configuration
+a3a7989 - Implement dual-model fallback: gemini-3.5-flash → gemini-2.5-pro on rate limit
 37f1237 - Add Fly.io deployment configuration (Docker)
 ```
 
@@ -198,21 +201,22 @@ a3a7989 - Implement dual-model fallback: gemini-3.5-flash → gemini-2.5-pro on 
 Monitor bot health in real-time:
 
 ```bash
-# Live logs
-fly logs -f
+fly logs -a krasokai
 
 # Look for:
+# - "Groq client initialized: llama-3.3-70b-versatile"
 # - "Bot @krasokai_bot is now online and polling!"
-# - "Fallback model activated:" (if rate limit triggered)
-# - Error messages (if API fails)
+# - "Sending N messages to Groq API"
 ```
 
 ## Roadmap
 
-- [x] Dual-model fallback system
+- [x] Groq Llama 3.3 70B integration
 - [x] 24/7 production deployment
 - [x] Anti-hallucination grounding
 - [x] Context management
+- [x] HTML formatting with structured emoji
+- [x] Message role validation
 - [ ] Redis persistence for context
 - [ ] Lead capture (phone, email collection)
 - [ ] Live product catalogue API integration
