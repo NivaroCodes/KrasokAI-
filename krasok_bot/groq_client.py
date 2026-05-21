@@ -34,11 +34,18 @@ class GroqClient:
         try:
             messages = [{"role": "system", "content": system_prompt}]
             for msg in chat_history[-10:]:
+                role = msg.get("role", "").strip()
+                content = msg.get("content", "").strip()
+                if not role or not content:
+                    continue
+                if role not in ("user", "assistant"):
+                    role = "user"
                 messages.append({
-                    "role": msg.get("role", "user"),
-                    "content": msg.get("content") or msg.get("parts") or ""
+                    "role": role,
+                    "content": content
                 })
-            messages.append({"role": "user", "content": user_message})
+            messages.append({"role": "user", "content": user_message.strip()})
+            logger.info(f"Sending {len(messages)} messages to Groq API")
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,

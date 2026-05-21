@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.enums import ParseMode
 
-from gemini_client import GroqClient, SYSTEM_PROMPT
+from groq_client import GroqClient, SYSTEM_PROMPT
 from config import GROQ_API_KEY, GROQ_MODEL, TEMPERATURE, MAX_TOKENS
 
 groq_client = GroqClient(
@@ -31,7 +31,7 @@ def get_user_history(chat_id: int) -> list:
 
 def append_to_user_history(chat_id: int, role: str, text: str):
     history = get_user_history(chat_id)
-    history.append({"role": role, "parts": text})
+    history.append({"role": role, "content": text})
     if len(history) > MAX_HISTORY_LEN:
         conversation_history[chat_id] = history[-MAX_HISTORY_LEN:]
 
@@ -119,10 +119,10 @@ async def text_message_handler(message: Message):
         history = get_user_history(chat_id)
         ai_response = await groq_client.get_response(user_query, SYSTEM_PROMPT, history)
         append_to_user_history(chat_id, "user", user_query)
-        append_to_user_history(chat_id, "model", ai_response)
+        append_to_user_history(chat_id, "assistant", ai_response)
 
     elapsed_time = time.time() - start_time
-    logger.info(f"Gemini responded in {elapsed_time:.2f}s for chat_id {chat_id}.")
+    logger.info(f"Groq responded in {elapsed_time:.2f}s for chat_id {chat_id}.")
 
     chunks = split_message(ai_response)
     for chunk in chunks:
