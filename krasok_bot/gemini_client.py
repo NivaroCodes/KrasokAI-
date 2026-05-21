@@ -1,9 +1,8 @@
 import logging
-import google.generativeai as genai
-from typing import Optional
+from groq import AsyncGroq
 import config
 
-logger = logging.getLogger("KrasokAI.GeminiClient")
+logger = logging.getLogger("KrasokAI.GroqClient")
 
 SYSTEM_PROMPT = f"""Вы являетесь профессиональным AI-ассистентом компании «Центр Красок #1» (centr-krasok.kz).
 Ваша главная цель — отвечать на вопросы пользователей вежливо, профессионально и лаконично.
@@ -23,75 +22,30 @@ SYSTEM_PROMPT = f"""Вы являетесь профессиональным AI-
 ==================================================
 """
 
-class DualModelGeminiClient:
-    def __init__(self, primary_key: str, primary_model: str, fallback_key: str, fallback_model: str, temperature: float, max_tokens: int):
-        self.primary_key = primary_key
-        self.primary_model = primary_model
-        self.fallback_key = fallback_key
-        self.fallback_model = fallback_model
+class GroqClient:
+    def __init__(self, api_key: str, model: str, temperature: float, max_tokens: int):
+        self.client = AsyncGroq(api_key=api_key)
+        self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.current_model = primary_model
-        self.using_fallback = False
-        self._init_primary()
-
-    def _init_primary(self):
-        genai.configure(api_key=self.primary_key)
-        self.client = genai.GenerativeModel(self.primary_model)
-        logger.info(f"Primary Gemini model initialized: {self.primary_model}")
-
-    def _init_fallback(self):
-        if not self.fallback_key:
-            logger.warning("Fallback API key not configured")
-            return False
-        try:
-            genai.configure(api_key=self.fallback_key)
-            self.client = genai.GenerativeModel(self.fallback_model)
-            self.current_model = self.fallback_model
-            self.using_fallback = True
-            logger.info(f"Fallback model activated: {self.fallback_model}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to initialize fallback model: {e}")
-            return False
+        logger.info(f"Groq client initialized: {self.model}")
 
     async def get_response(self, user_message: str, system_prompt: str, chat_history: list) -> str:
         try:
-            return await self._query_model(user_message, system_prompt, chat_history)
-        except Exception as e:
-            error_str = str(e).lower()
-            if any(trigger in error_str for trigger in ["429", "rate", "quota", "deadline"]):
-                logger.warning(f"Rate limit detected on {self.current_model}: {e}")
-                if not self.using_fallback and self._init_fallback():
-                    try:
-                        return await self._query_model(user_message, system_prompt, chat_history)
-                    except Exception as fallback_error:
-                        logger.error(f"Fallback model also failed: {fallback_error}")
-                        return "Система временно недоступна. Пожалуйста, попробуйте через несколько секунд."
-                else:
-                    return "Система временно недоступна. Пожалуйста, попробуйте через несколько секунд."
-            else:
-                logger.error(f"Unexpected error: {e}")
-                return "Произошла ошибка. Пожалуйста, попробуйте снова."
-
-    async def _query_model(self, user_message: str, system_prompt: str, chat_history: list) -> str:
-        messages = [{"role": "user", "content": system_prompt}]
-        for msg in chat_history[-10:]:
-            messages.append({"role": msg.get("role", "user"), "content": msg.get("content") or msg.get("parts") or ""})
-        messages.append({"role": "user", "content": user_message})
-        
-        formatted_contents = []
-        for msg in messages:
-            formatted_contents.append({
-                "role": msg["role"],
-                "parts": [msg["content"]]
-            })
-            
-        response = await self.client.generate_content_async(
-            contents=formatted_contents,
-            generation_config=genai.types.GenerationConfig(
+            messages = [{"role": "system", "content": system_prompt}]
+            for msg in chat_history[-10:]:
+                messages.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content") or msg.get("parts") or ""
+                })
+            messages.append({"role": "user", "content": user_message})
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
                 temperature=self.temperature,
-                max_output_tokens=self.max_tokens,
-            ),
-        )
-        return response.text
+                max_tokens=self.max_tokens,
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Groq API error: {e}")
+            return "Произошла ошибка. Пожалуйста, попробуйте снова."

@@ -23,10 +23,8 @@ else:
     logger.warning(".env file not found, loading from system environment variables.")
 
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
-PRIMARY_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
-PRIMARY_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
-FALLBACK_API_KEY: str = os.getenv("GOOGLE_API_KEY_FALLBACK", "")
-FALLBACK_MODEL: str = os.getenv("GEMINI_MODEL_FALLBACK", "gemini-2.5-pro")
+GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 try:
     TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.3"))
@@ -35,10 +33,10 @@ except ValueError:
     TEMPERATURE = 0.3
 
 try:
-    MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "500"))
+    MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "1024"))
 except ValueError:
-    logger.warning("Invalid MAX_TOKENS in .env, using default 500")
-    MAX_TOKENS = 500
+    logger.warning("Invalid MAX_TOKENS in .env, using default 1024")
+    MAX_TOKENS = 1024
 
 KNOWLEDGE_BASE_PATH = BASE_DIR / "company_knowledge_base.txt"
 KNOWLEDGE_BASE_CONTENT: str = ""
@@ -59,8 +57,8 @@ def validate_config() -> bool:
     missing = []
     if not TELEGRAM_BOT_TOKEN or "YOUR_TELEGRAM_BOT_TOKEN" in TELEGRAM_BOT_TOKEN:
         missing.append("TELEGRAM_BOT_TOKEN")
-    if not PRIMARY_API_KEY or "YOUR_GOOGLE_API_KEY" in PRIMARY_API_KEY:
-        missing.append("PRIMARY_API_KEY")
+    if not GROQ_API_KEY or "YOUR_GROQ_API_KEY" in GROQ_API_KEY:
+        missing.append("GROQ_API_KEY")
 
     if missing:
         err_msg = f"Missing or placeholder configurations in environment: {', '.join(missing)}"

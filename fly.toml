@@ -6,9 +6,6 @@ primary_region = "ams"
 
 [env]
   TELEGRAM_BOT_TOKEN = "8784200804:AAFMgRpcZqXoZXrtfUkxP64PHfqcTcVuAFM"
-  GOOGLE_API_KEY = "AIzaSyAK9AawDsh2D0KGX2eJWy30JbFceuDmdI0"
-  GOOGLE_API_KEY_FALLBACK = "AIzaSyDK3xxzkViFdDefK9MmUoLwMq7Z1xW_lpk"
-  GEMINI_MODEL = "gemini-2.5-pro"
-  GEMINI_MODEL_FALLBACK = "gemini-3.5-flash"
+  GROQ_MODEL = "llama-3.3-70b-versatile"
   TEMPERATURE = "0.3"
-  MAX_TOKENS = "2048"
+  MAX_TOKENS = "1024"
